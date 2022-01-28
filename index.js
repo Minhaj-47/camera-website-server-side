@@ -34,7 +34,7 @@ async function run() {
       const result = await ordersCollection.insertOne(req.body);
       res.json(result);
     });
-    // add new product
+    // add new productsss
     app.post("/products", async (req, res) => {
       const productData = req.body;
       const result = await productsCollection.insertOne(productData);
