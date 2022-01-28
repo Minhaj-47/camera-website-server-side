@@ -29,7 +29,7 @@ async function run() {
       res.json(result);
     });
 
-    // insert order
+    // insert orderrrrrrrrrr
     app.post("/addOrders", async (req, res) => {
       const result = await ordersCollection.insertOne(req.body);
       res.json(result);
