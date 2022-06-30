@@ -1,10 +1,18 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const admin = require("firebase-admin");
 require("dotenv").config();
 const { MongoClient } = require("mongodb");
 const ObjectId = require("mongodb").ObjectId;
 const port = process.env.PORT || 5000;
+
+// const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const serviceAccount = require("./camera-purchase-react-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 app.use(cors());
 app.use(express.json());
@@ -14,6 +22,19 @@ const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
+//verify token function
+async function verifyToken(req, res, next) {
+  if (req.headers?.authorization?.startsWith("Bearer ")) {
+    const token = req.headers.authorization.split(" ")[1];
+
+    try {
+      const decodeUser = await admin.auth().verifyIdToken(token);
+      req.decodedEmail = decodeUser.email;
+    } catch {}
+  }
+  next();
+}
+
 async function run() {
   try {
     await client.connect();
@@ -111,18 +132,30 @@ async function run() {
       res.json(result);
     });
     // make a user admin
-    app.put("/users/admin", async (req, res) => {
-      const filter = { email: req.body.email };
-      const result = await usersCollection.findOne(filter);
-      if (result) {
-        const documents = await usersCollection.updateOne(filter, {
-          $set: { role: "admin" },
+    app.put("/users/admin", verifyToken, async (req, res) => {
+      const requester = req.decodedEmail;
+      if (requester) {
+        const requesterAccount = await usersCollection.findOne({
+          email: requester,
         });
-        res.json(documents);
-      } else {
-        res
-          .status(403)
-          .json({ message: "you do not have access to make admin" });
+        if (requesterAccount.role === "admin") {
+          const filter = { email: req.body.email };
+          const result = await usersCollection.findOne(filter);
+          if (result) {
+            const documents = await usersCollection.updateOne(filter, {
+              $set: { role: "admin" },
+            });
+            res.json(documents);
+          } else {
+            res
+              .status(403)
+              .json({ message: "you do not have access to make admin" });
+          }
+        } else {
+          res
+            .status(403)
+            .json({ message: "you do not have access to make admin" });
+        }
       }
     });
 
